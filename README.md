@@ -1,4 +1,4 @@
-# xn
+# again
 
 Run any command or script n times, sequentially. Useful for quick retries, basic load/benchmark loops, or repeated task execution with simple feedback and colored output.
 
@@ -22,20 +22,20 @@ deno task install
 
 # Or build a standalone binary
 deno task build
-# Binary will be created at ./bin/xn
+# Binary will be created at ./bin/again
 ```
 
 ## Usage
 
 ```bash
 # Run a command 5 times
-xn -n 5 echo "Hello"
+again -n 5 echo "Hello"
 
 # Run a script multiple times
-xn -n 3 node script.js
+again -n 3 node script.js
 
 # Suppress per‑run output (silent mode)
-xn -n 10 -s node script.js
+again -n 10 -s node script.js
 ```
 
 ## Options

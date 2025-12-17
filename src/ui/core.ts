@@ -7,12 +7,12 @@ export interface Printer {
   printResult(result: ExecutionResult): void;
 }
 export function showVersion(version: string) {
-  console.log(colors.green(`xn version ${version}`));
+  console.log(colors.green(`again version ${version}`));
 }
 
 export function showHelp() {
   console.log(
-    colors.bold(colors.cyan("Usage:")) + " " + colors.white("xn [options] <command>") + "\n" +
+    colors.bold(colors.cyan("Usage:")) + " " + colors.white("again [options] <command>") + "\n" +
       "\n" +
       colors.bold(colors.cyan("Options:")) + "\n" +
       "  " + colors.yellow("-n") + ", " + colors.yellow("--count") + " <number>   " +
@@ -25,6 +25,6 @@ export function showHelp() {
       colors.dim("Show version information") + "\n" +
       "\n" +
       colors.bold(colors.cyan("Example:")) + "\n" +
-      "  " + colors.green('xn -n 5 "echo Hello, World!"'),
+      "  " + colors.green('again -n 5 "echo Hello, World!"'),
   );
 }

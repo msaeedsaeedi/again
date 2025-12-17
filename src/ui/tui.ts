@@ -5,7 +5,7 @@ import colors from "picocolors";
 
 export class TUI implements Printer {
   showIntro(count: number) {
-    p.intro(colors.bgBlue(colors.white(` xn ${count} `)));
+    p.intro(colors.bgBlue(colors.white(` again ${count} `)));
   }
 
   showOutro() {
