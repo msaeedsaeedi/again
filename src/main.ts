@@ -33,14 +33,7 @@ function parseCliArgs(): CliOptions | null {
   const command = args._[0] as string;
 
   if (!command) {
-    console.error("Error: Command is required");
     showHelp();
-    Deno.exit(1);
-  }
-
-  if (!count || count < 1) {
-    console.error("Error: Count must be a positive number");
-    console.log("Help Here");
     Deno.exit(1);
   }
 
