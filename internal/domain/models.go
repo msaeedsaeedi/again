@@ -8,9 +8,9 @@ type VerbosityLevel string
 type OutputFormat string
 
 const (
-	Silent  VerbosityLevel = "silent"
-	Default VerbosityLevel = "default"
-	Verbose VerbosityLevel = "verbose"
+	VerbositySilent  VerbosityLevel = "silent"
+	VerbosityNormal  VerbosityLevel = "normal"
+	VerbosityVerbose VerbosityLevel = "verbose"
 )
 
 const (

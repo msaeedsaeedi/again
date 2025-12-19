@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -61,17 +62,17 @@ func newRootCmd(opts *options) *cobra.Command {
 		Use:                "again [flags] -- <command>",
 		Short:              "Run commands multiple times",
 		Long:               "again - A powerful CLI tool to execute commands multiple times",
-		ValidArgs:          []string{"<command>"},
 		SilenceErrors:      true,
 		DisableFlagParsing: false,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return run(args, opts)
 		},
+		SilenceUsage: true,
 	}
 
 	cmd.Flags().IntVarP(&opts.times, "times", "n", 1, "Number of times to run a command")
 	cmd.Flags().StringVarP(&opts.format, "format", "f", "tui", "Output format (tui|json|raw)")
-	cmd.Flags().StringVarP(&opts.verbosity, "verbosity", "v", "default", "Verbosity level (silent|default|verbose)")
+	cmd.Flags().StringVarP(&opts.verbosity, "verbosity", "v", "normal", "Verbosity level (silent|normal|verbose)")
 
 	return cmd
 }
@@ -80,6 +81,9 @@ func main() {
 	opts := &options{}
 	rootCmd := newRootCmd(opts)
 	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		fmt.Fprintln(os.Stderr)
+		rootCmd.Usage()
 		os.Exit(1)
 	}
 }
