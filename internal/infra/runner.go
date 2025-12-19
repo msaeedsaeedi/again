@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os/exec"
+	"syscall"
 	"time"
 
 	"github.com/msaeedsaeedi/again/internal/domain"
@@ -25,10 +26,12 @@ func (r *CommandRunner) Run(ctx context.Context, cfg *domain.RunConfig, runID in
 
 	var cmd *exec.Cmd
 	if len(cfg.Command) == 1 {
-		cmd = exec.CommandContext(ctx, "sh", "-c", cfg.Command[0])
+		cmd = exec.Command("sh", "-c", cfg.Command[0])
 	} else {
-		cmd = exec.CommandContext(ctx, cfg.Command[0], cfg.Command[1:]...)
+		cmd = exec.Command(cfg.Command[0], cfg.Command[1:]...)
 	}
+
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	var stdout, stderr bytes.Buffer
 
@@ -44,14 +47,42 @@ func (r *CommandRunner) Run(ctx context.Context, cfg *domain.RunConfig, runID in
 		cmd.Stderr = &stderr
 	}
 
-	err := cmd.Run()
+	if err := cmd.Start(); err != nil {
+		result.FinishedAt = time.Now()
+		result.Duration = result.FinishedAt.Sub(result.StartedAt)
+		result.Stdout = stdout.Bytes()
+		result.Stderr = stderr.Bytes()
+		result.Error = err
+		result.Success = false
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			result.ExitCode = exitErr.ExitCode()
+		} else {
+			result.ExitCode = -1
+		}
+		return result
+	}
+
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+
+	var err error
+	select {
+	case err = <-done:
+		// normal exit
+	case <-ctx.Done():
+		// kill whole process group
+		pgid := cmd.Process.Pid
+		_ = syscall.Kill(-pgid, syscall.SIGKILL)
+		err = ctx.Err()
+		<-done
+	}
 	result.FinishedAt = time.Now()
 	result.Duration = result.FinishedAt.Sub(result.StartedAt)
 	result.Stdout = stdout.Bytes()
 	result.Stderr = stderr.Bytes()
 
 	if err != nil {
-		if ctx.Err() == context.Canceled {
+		if errors.Is(ctx.Err(), context.Canceled) || errors.Is(err, context.Canceled) {
 			result.Error = errors.New("cancelled")
 		} else {
 			result.Error = err
