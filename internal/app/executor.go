@@ -31,6 +31,13 @@ func (e *SequentialExecutor) Execute(ctx context.Context, cfg *domain.RunConfig,
 	results := make([]domain.RunResult, 0, cfg.Times)
 
 	for i := 1; i <= cfg.Times; i++ {
+		select {
+		case <-ctx.Done():
+			handler.OnFinish()
+			return ctx.Err()
+		default:
+		}
+
 		handler.OnStart(i)
 		result := e.runner.Run(ctx, cfg, i)
 		results = append(results, result)

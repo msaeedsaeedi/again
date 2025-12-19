@@ -3,6 +3,7 @@ package infra
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os/exec"
 	"time"
 
@@ -39,7 +40,11 @@ func (r *CommandRunner) Run(ctx context.Context, cfg *domain.RunConfig, runID in
 	result.Stderr = stderr.Bytes()
 
 	if err != nil {
-		result.Error = err
+		if ctx.Err() == context.Canceled {
+			result.Error = errors.New("cancelled")
+		} else {
+			result.Error = err
+		}
 		result.Success = false
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			result.ExitCode = exitErr.ExitCode()
