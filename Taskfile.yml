@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: "3"
+
+tasks:
+  dev:
+    desc: Run the project in development mode
+    cmds:
+      - go run ./cmd/again {{.CLI_ARGS}}
+    ignore_error: true
+
+  build:
+    desc: Build the project
+    cmds:
+      - go build -o bin/again ./cmd/again
+
+  run:
+    desc: Run the project
+    cmds:
+      - ./bin/again {{.CLI_ARGS}}
+    ignore_error: true
+
+  clean:
+    desc: Clean the build artifacts
+    cmds:
+      - rm -rf ./bin
