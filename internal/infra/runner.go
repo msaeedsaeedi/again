@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os/exec"
 	"time"
 
@@ -16,7 +17,7 @@ func NewCommandRunner() *CommandRunner {
 	return &CommandRunner{}
 }
 
-func (r *CommandRunner) Run(ctx context.Context, cfg *domain.RunConfig, runID int) domain.RunResult {
+func (r *CommandRunner) Run(ctx context.Context, cfg *domain.RunConfig, runID int, stdoutWriter, stderrWriter io.Writer) domain.RunResult {
 	result := domain.RunResult{
 		ID:        runID,
 		StartedAt: time.Now(),
@@ -30,8 +31,18 @@ func (r *CommandRunner) Run(ctx context.Context, cfg *domain.RunConfig, runID in
 	}
 
 	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+
+	if stdoutWriter != nil {
+		cmd.Stdout = io.MultiWriter(&stdout, stdoutWriter)
+	} else {
+		cmd.Stdout = &stdout
+	}
+
+	if stderrWriter != nil {
+		cmd.Stderr = io.MultiWriter(&stderr, stderrWriter)
+	} else {
+		cmd.Stderr = &stderr
+	}
 
 	err := cmd.Run()
 	result.FinishedAt = time.Now()

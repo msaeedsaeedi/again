@@ -2,6 +2,7 @@ package ui
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"sync"
 
@@ -29,6 +30,10 @@ func NewJSONFormatter(cfg *domain.RunConfig) *JSONFormatter {
 		config:  cfg,
 		results: make([]domain.RunResult, 0),
 	}
+}
+
+func (f *JSONFormatter) GetOutputWriters() (stdout, stderr io.Writer) {
+	return nil, nil
 }
 
 func (f *JSONFormatter) OnStart(runID int) {

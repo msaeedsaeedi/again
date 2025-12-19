@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"io"
 
 	"github.com/msaeedsaeedi/again/internal/domain"
 	"github.com/msaeedsaeedi/again/internal/infra"
@@ -11,6 +12,7 @@ type ResultHandler interface {
 	OnStart(runID int)
 	OnComplete(result domain.RunResult)
 	OnFinish()
+	GetOutputWriters() (stdout, stderr io.Writer)
 }
 
 type Executor interface {
@@ -39,8 +41,11 @@ func (e *SequentialExecutor) Execute(ctx context.Context, cfg *domain.RunConfig,
 		}
 
 		handler.OnStart(i)
-		result := e.runner.Run(ctx, cfg, i)
+
+		stdoutWriter, stderrWriter := handler.GetOutputWriters()
+		result := e.runner.Run(ctx, cfg, i, stdoutWriter, stderrWriter)
 		results = append(results, result)
+
 		handler.OnComplete(result)
 	}
 
