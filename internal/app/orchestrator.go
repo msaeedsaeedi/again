@@ -26,8 +26,19 @@ func (o *Orchestrator) Execute(ctx context.Context, cfg *domain.RunConfig) error
 	}
 
 	executor := NewExecutor(cfg, o.runner)
-	handler := ui.NewJSONFormatter(cfg)
+	handler := getFormatter(cfg)
 	executor.Execute(ctx, cfg, handler)
 
 	return nil
+}
+
+func getFormatter(cfg *domain.RunConfig) ResultHandler {
+	switch cfg.Format {
+	case domain.FormatRaw:
+		return ui.NewRawFormatter()
+	case domain.FormatJSON:
+		return ui.NewJSONFormatter(cfg)
+	default:
+		return ui.NewRawFormatter()
+	}
 }
