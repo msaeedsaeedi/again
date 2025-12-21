@@ -249,188 +249,206 @@ func (m *Model) View() string {
 		return "Initializing..."
 	}
 
-	// Layout Dimensions
-	// Account for margins (1 line top/bottom, 2 cols left/right = 4 total width, 2 total height)
 	availWidth := max(20, m.width-4)
 	availHeight := max(10, m.height-2)
-
-	// Use roughly 25% for sidebar, but keep min/max bounds
 	sidebarW := max(30, availWidth/4)
-	mainW := availWidth - sidebarW - 1 // -1 for potential gutter
-
-	footerHeight := 1 // 1 line of text
+	mainW := availWidth - sidebarW - 1
+	footerHeight := 3
 	contentH := max(10, availHeight-footerHeight)
 
-	// --- 1. Sidebar Construction ---
+	sidebar := m.renderSidebar(sidebarW, contentH)
+	mainPanel := m.renderMainPanel(mainW, contentH)
+	footer := m.renderFooter(availWidth)
+
+	body := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, mainPanel)
+	screen := lipgloss.JoinVertical(lipgloss.Left, body, footer)
+
+	return styleScreen.Render(screen)
+}
+
+func (m *Model) renderSidebar(width, height int) string {
 	var sb strings.Builder
 
 	sb.WriteString(styleBoldWhite.Render("RUN HISTORY"))
 	sb.WriteString("\n\n")
 
-	// Calculate visible range for sidebar with scrolling support
-	// Reserve space for header (3 lines: title + blank line + potential scroll indicator)
-	sidebarVisibleLines := contentH - 4
+	visibleLines := height - 4
 
-	// Auto-scroll sidebar when selected run moves down
-	if m.selectedRun >= m.sidebarScrollOffset+sidebarVisibleLines {
-		m.sidebarScrollOffset = m.selectedRun - sidebarVisibleLines + 1
+	if m.selectedRun >= m.sidebarScrollOffset+visibleLines {
+		m.sidebarScrollOffset = m.selectedRun - visibleLines + 1
 	}
 
-	// Calculate visible window
 	startIdx := m.sidebarScrollOffset
-	endIdx := min(len(m.runs), startIdx+sidebarVisibleLines)
+	endIdx := min(len(m.runs), startIdx+visibleLines)
 
-	// Show scroll indicators (without extra newline to avoid shifting)
 	if startIdx > 0 {
 		sb.WriteString(styleDim.Render("  ▲ more above"))
 		sb.WriteString("\n")
 	}
 
 	for i := startIdx; i < endIdx; i++ {
-		run := m.runs[i]
-
-		// Icon & Color Logic
-		var icon, statusStr string
-		var runStyle lipgloss.Style
-
-		switch run.status {
-		case "success":
-			icon = "✓"
-			statusStr = "0"
-			runStyle = styleSuccess
-		case "failed":
-			icon = "✗"
-			statusStr = fmt.Sprintf("%d", run.exitCode)
-			runStyle = styleFailure
-		case "running":
-			icon = "..."
-			statusStr = ""
-			runStyle = styleRunning
-		default: // pending
-			icon = "-"
-			statusStr = ""
-			runStyle = stylePending
-		}
-
-		timeStr := ""
-		if !run.startedAt.IsZero() {
-			timeStr = run.startedAt.Format("15:04:05")
-		}
-
-		rowLeft := fmt.Sprintf("Run #%03d %s %-2s", run.id, icon, statusStr)
-
-		var line string
-		if i == m.selectedRun {
-			// Active Selection: Add "┃" prefix and blue color
-			if timeStr != "" {
-				line = fmt.Sprintf("┃ %-18s %s", rowLeft, timeStr)
-			} else {
-				line = fmt.Sprintf("┃ %s", rowLeft)
-			}
-			sb.WriteString(styleActive.Render(line))
-		} else {
-			// Inactive: Padding instead of bar
-			if timeStr != "" {
-				line = fmt.Sprintf("  %-18s %s", rowLeft, timeStr)
-			} else {
-				line = fmt.Sprintf("  %s", rowLeft)
-			}
-			sb.WriteString(runStyle.Render(line))
-		}
+		sb.WriteString(m.renderRunLine(i))
 		sb.WriteString("\n")
 	}
 
-	// Show scroll indicator if there are more runs below
 	if endIdx < len(m.runs) {
 		sb.WriteString(styleDim.Render("  ▼ more below"))
 	}
 
-	leftPanel := styleSidebar.Width(sidebarW).MaxWidth(sidebarW).Height(contentH).Render(sb.String())
+	return styleSidebar.Width(width).MaxWidth(width).Height(height).Render(sb.String())
+}
 
-	// --- 2. Main Area Construction ---
+func (m *Model) renderRunLine(index int) string {
+	run := m.runs[index]
+
+	icon, statusStr, runStyle := m.getRunStatusDisplay(run)
+
+	timeStr := ""
+	if !run.startedAt.IsZero() {
+		timeStr = run.startedAt.Format("15:04:05")
+	}
+
+	rowLeft := fmt.Sprintf("Run #%03d %s %-2s", run.id, icon, statusStr)
+
+	var line string
+	if index == m.selectedRun {
+		if timeStr != "" {
+			line = fmt.Sprintf("┃ %-18s %s", rowLeft, timeStr)
+		} else {
+			line = fmt.Sprintf("┃ %s", rowLeft)
+		}
+		return styleActive.Render(line)
+	}
+
+	if timeStr != "" {
+		line = fmt.Sprintf("  %-18s %s", rowLeft, timeStr)
+	} else {
+		line = fmt.Sprintf("  %s", rowLeft)
+	}
+	return runStyle.Render(line)
+}
+
+func (m *Model) getRunStatusDisplay(run runState) (icon, statusStr string, style lipgloss.Style) {
+	switch run.status {
+	case "success":
+		return "✓", "0", styleSuccess
+	case "failed":
+		return "✗", fmt.Sprintf("%d", run.exitCode), styleFailure
+	case "running":
+		return "...", "", styleRunning
+	default:
+		return "-", "", stylePending
+	}
+}
+
+func (m *Model) renderMainPanel(width, height int) string {
 	var main strings.Builder
 
-	if m.selectedRun < len(m.runs) {
-		run := m.runs[m.selectedRun]
+	if m.selectedRun >= len(m.runs) {
+		return styleMain.Width(width).Render("")
+	}
 
-		// Header Section
-		main.WriteString(styleBoldWhite.Render(fmt.Sprintf("RUN DETAILS: #%03d", run.id)))
-		main.WriteString("\n\n")
+	run := m.runs[m.selectedRun]
 
-		// Metadata Grid
-		main.WriteString(styleBoldWhite.Render("Command"))
-		fmt.Fprintf(&main, "\n  > %s\n\n", strings.Join(m.cfg.Command, " "))
-		main.WriteString(styleBoldWhite.Render("Status") + "\n")
+	main.WriteString(styleBoldWhite.Render(fmt.Sprintf("RUN DETAILS: #%03d", run.id)))
+	main.WriteString("\n\n")
 
-		statText := "Pending"
-		switch run.status {
-		case "success":
-			statText = styleSuccess.Render("Success (Exit Code: 0)")
-		case "failed":
-			statText = styleFailure.Render(fmt.Sprintf("Failed (Exit Code: %d)", run.exitCode))
-		case "running":
-			statText = styleRunning.Render("Running...")
-		}
-		main.WriteString("  " + statText + "\n\n")
+	m.renderCommandSection(&main)
+	m.renderStatusSection(&main, run)
+	m.renderDurationSection(&main, run)
+	m.renderLogsSection(&main, run, height)
 
-		if run.duration != 0 || run.status == "running" {
-			dur := run.duration
-			if run.status == "running" {
-				if !m.lastTickTime.IsZero() {
-					dur = m.lastTickTime.Sub(run.startedAt)
-				} else {
-					dur = time.Since(run.startedAt)
-				}
-			}
-			main.WriteString(styleBoldWhite.Render("Duration") + "\n")
-			main.WriteString(fmt.Sprintf("  %s\n\n", dur.Round(time.Millisecond)))
-		}
+	return styleMain.Width(width).Height(height).Render(main.String())
+}
 
-		// LOGS Section
-		main.WriteString(styleBoldWhite.Render("OUTPUT LOGS"))
-		main.WriteString("\n")
+func (m *Model) renderCommandSection(w *strings.Builder) {
+	w.WriteString(styleBoldWhite.Render("Command"))
+	fmt.Fprintf(w, "\n  > %s\n\n", strings.Join(m.cfg.Command, " "))
+}
 
-		runLogEntries := m.runLogs[run.id]
-		var runLogs []string
-		for _, entry := range runLogEntries {
-			runLogs = append(runLogs, entry.text)
-		}
+func (m *Model) renderStatusSection(w *strings.Builder, run runState) {
+	w.WriteString(styleBoldWhite.Render("Status") + "\n")
 
-		// Scroll Logic
-		// Approximating header lines usage: ~12-14 lines
-		logAreaHeight := max(5, contentH-14)
+	var statText string
+	switch run.status {
+	case "success":
+		statText = styleSuccess.Render("Success (Exit Code: 0)")
+	case "failed":
+		statText = styleFailure.Render(fmt.Sprintf("Failed (Exit Code: %d)", run.exitCode))
+	case "running":
+		statText = styleRunning.Render("Running...")
+	default:
+		statText = "Pending"
+	}
 
-		totalLogLines := len(runLogs)
+	w.WriteString("  " + statText + "\n\n")
+}
 
-		// Auto-scroll to end if enabled
-		if m.autoScroll && totalLogLines > logAreaHeight {
-			m.scrollOffset = totalLogLines - logAreaHeight
-		}
+func (m *Model) renderDurationSection(w *strings.Builder, run runState) {
+	// Always render Duration section to maintain consistent height
+	dur := time.Duration(0)
 
-		start := m.scrollOffset
-
-		if start > totalLogLines-logAreaHeight {
-			start = max(0, totalLogLines-logAreaHeight)
-		}
-		if start < 0 {
-			start = 0
-		}
-		end := min(totalLogLines, start+logAreaHeight)
-
-		for i := start; i < end; i++ {
-			main.WriteString(runLogs[i] + "\n")
-		}
-
-		if end < totalLogLines {
-			main.WriteString(styleDim.Render("... (scroll down for more) ..."))
+	if run.duration != 0 {
+		dur = run.duration
+	} else if run.status == "running" {
+		if !m.lastTickTime.IsZero() {
+			dur = m.lastTickTime.Sub(run.startedAt)
+		} else {
+			dur = time.Since(run.startedAt)
 		}
 	}
 
-	rightPanel := styleMain.Width(mainW).Height(contentH).Render(main.String())
+	w.WriteString(styleBoldWhite.Render("Duration") + "\n")
+	if dur > 0 {
+		w.WriteString(fmt.Sprintf("  %s\n\n", dur.Round(time.Millisecond)))
+	} else {
+		w.WriteString("  -\n\n")
+	}
+}
 
-	// --- 3. Footer Construction ---
+func (m *Model) renderLogsSection(w *strings.Builder, run runState, contentHeight int) {
+	w.WriteString(styleBoldWhite.Render("OUTPUT LOGS"))
+	w.WriteString("\n")
 
-	// Left side: Progress Section
+	runLogEntries := m.runLogs[run.id]
+	var runLogs []string
+	for _, entry := range runLogEntries {
+		runLogs = append(runLogs, entry.text)
+	}
+
+	// Reserve lines: title(1) + blank(1) + header sections(~12) + scroll indicator(1)
+	logAreaHeight := max(5, contentHeight-15)
+	totalLogLines := len(runLogs)
+
+	if m.autoScroll && totalLogLines > logAreaHeight {
+		m.scrollOffset = totalLogLines - logAreaHeight
+	}
+
+	start := max(0, min(m.scrollOffset, totalLogLines-logAreaHeight))
+	end := min(totalLogLines, start+logAreaHeight)
+
+	// Always render exactly logAreaHeight lines to prevent layout shift
+	linesRendered := 0
+	for i := start; i < end; i++ {
+		w.WriteString(runLogs[i] + "\n")
+		linesRendered++
+	}
+
+	// Fill remaining space with empty lines to maintain consistent height
+	for linesRendered < logAreaHeight {
+		w.WriteString("\n")
+		linesRendered++
+	}
+
+	// Scroll indicator always rendered (consistent height)
+	if end < totalLogLines {
+		w.WriteString(styleDim.Render("... (scroll down for more) ..."))
+	} else {
+		w.WriteString(" ") // Placeholder to maintain height
+	}
+}
+
+func (m *Model) renderFooter(width int) string {
 	progressStr := fmt.Sprintf("%d/%d", m.completed, m.cfg.Times)
 	stateStr := "Active"
 	if m.finished {
@@ -438,38 +456,21 @@ func (m *Model) View() string {
 	}
 	leftSection := styleHelpText.Render(progressStr + " " + stateStr)
 
-	// Right side: Help Section with proper spacing
 	var helpItems []string
-
-	// Navigation
 	helpItems = append(helpItems, styleHelpKey.Render("↑/k")+styleHelpText.Render(" navigate"))
 	helpItems = append(helpItems, styleHelpKey.Render("pgup/pgdn")+styleHelpText.Render(" scroll"))
-
-	// Quit
 	helpItems = append(helpItems, styleHelpKey.Render("q")+styleHelpText.Render(" quit"))
 
-	// Join help items
 	rightSection := strings.Join(helpItems, "   ")
 
-	// Calculate spacing to spread items across footer
 	leftWidth := lipgloss.Width(leftSection)
 	rightWidth := lipgloss.Width(rightSection)
-	spacerWidth := max(2, availWidth-leftWidth-rightWidth-4) // -4 for padding
+	spacerWidth := max(2, width-leftWidth-rightWidth-4)
 	spacer := strings.Repeat(" ", spacerWidth)
 
 	footerLine := leftSection + spacer + rightSection
 
-	footerPanel := styleFooter.Width(availWidth).Render(footerLine)
-
-	// --- 4. Final Composition ---
-	// Horizontal join sidebar + main
-	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel)
-
-	// Vertical join body + footer
-	screen := lipgloss.JoinVertical(lipgloss.Left, body, footerPanel)
-
-	// Apply margin to entire screen
-	return styleScreen.Render(screen)
+	return styleFooter.Width(width).Render(footerLine)
 }
 
 func (m *Model) appendLog(msg streamMsg) {
