@@ -16,7 +16,9 @@ const version = "0.1.0-beta"
 
 type options struct {
 	times     int
-	format    string
+	json      bool
+	raw       bool
+	tui       bool
 	verbosity string
 }
 
@@ -30,13 +32,23 @@ func parseCommand(args []string) []string {
 }
 
 func buildRunConfig(command []string, opts *options) *domain.RunConfig {
+	var format string
+	switch {
+	case opts.json:
+		format = "json"
+	case opts.raw:
+		format = "raw"
+	case opts.tui:
+		format = "tui"
+	default:
+		format = "tui"
+	}
 	cfg := &domain.RunConfig{
 		Command:   command,
 		Times:     opts.times,
 		Verbosity: domain.VerbosityLevel(opts.verbosity),
-		Format:    domain.OutputFormat(opts.format),
+		Format:    domain.OutputFormat(format),
 	}
-
 	return cfg
 }
 
@@ -73,7 +85,9 @@ func newRootCmd(opts *options) *cobra.Command {
 	}
 
 	cmd.Flags().IntVarP(&opts.times, "times", "n", 1, "Number of times to run a command")
-	cmd.Flags().StringVarP(&opts.format, "format", "f", "tui", "Output format (tui|json|raw)")
+	cmd.Flags().BoolVar(&opts.json, "json", false, "Output in JSON format")
+	cmd.Flags().BoolVar(&opts.raw, "raw", false, "Output in raw format")
+	cmd.Flags().BoolVar(&opts.tui, "tui", false, "Output in TUI format (default)")
 	cmd.Flags().StringVarP(&opts.verbosity, "verbosity", "v", "normal", "Verbosity level (silent|normal|verbose)")
 	cmd.Version = version
 
