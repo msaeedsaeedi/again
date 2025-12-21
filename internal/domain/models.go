@@ -24,6 +24,7 @@ type RunConfig struct {
 	Times     int
 	Verbosity VerbosityLevel
 	Format    OutputFormat
+	Timeout   time.Duration
 }
 
 type RunResult struct {

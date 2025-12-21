@@ -186,7 +186,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case allCompleteMsg:
+		m.mu.Lock()
 		m.finished = true
+		m.mu.Unlock()
 		return m, nil
 
 	case tea.KeyMsg:
@@ -234,8 +236,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.WindowSizeMsg:
+		m.mu.Lock()
 		m.width = msg.Width
 		m.height = msg.Height
+		m.mu.Unlock()
 	}
 
 	return m, nil

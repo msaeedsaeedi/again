@@ -2,6 +2,7 @@ package ui
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -70,6 +71,7 @@ func (f *JSONFormatter) OnFinish() {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(map[string][]ResultJSON{"results": results}); err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "Error encoding JSON output: %v\n", err)
+		os.Exit(1)
 	}
 }
