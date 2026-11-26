@@ -14,9 +14,10 @@ const (
 )
 
 const (
-	FormatTUI  OutputFormat = "tui"
-	FormatJSON OutputFormat = "json"
-	FormatRaw  OutputFormat = "raw"
+	FormatTUI   OutputFormat = "tui"
+	FormatJSON  OutputFormat = "json"
+	FormatJSONL OutputFormat = "jsonl"
+	FormatRaw   OutputFormat = "raw"
 )
 
 type RunConfig struct {
