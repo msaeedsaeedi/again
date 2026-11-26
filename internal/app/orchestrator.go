@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	"golang.org/x/sync/errgroup"
 
@@ -83,6 +84,8 @@ func getFormatter(cfg *domain.RunConfig) ResultHandler {
 		return ui.NewRawFormatter()
 	case domain.FormatJSON:
 		return ui.NewJSONFormatter(cfg)
+	case domain.FormatJSONL:
+		return ui.NewJSONLFormatter(os.Stdout)
 	case domain.FormatTUI:
 		return ui.NewTUIFormatter(cfg)
 	default:
