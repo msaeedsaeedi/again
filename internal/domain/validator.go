@@ -13,10 +13,10 @@ func NewConfigValidator() *ConfigValidator {
 
 func validateFormat(format OutputFormat) error {
 	switch format {
-	case FormatRaw, FormatJSON, FormatTUI:
+	case FormatRaw, FormatJSON, FormatJSONL, FormatTUI:
 		return nil
 	default:
-		return fmt.Errorf("invalid output format: %s", format)
+		return fmt.Errorf("invalid output format: %s (valid formats: tui, json, jsonl, raw)", format)
 	}
 }
 
