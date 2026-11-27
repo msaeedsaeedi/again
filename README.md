@@ -104,15 +104,16 @@ The project follows **Clean Architecture** principles to separate business logic
 
 ---
 
-## 🗺 Roadmap
+## 🤝 Contributing
 
-* [ ] **Verbosity Level:** Implement CLI flag internal plumbing for verbosity (`silent`, `normal`, `verbose`).
-* [ ] **Parallel Execution:** Run iterations concurrently with worker pools.
-* [ ] **Stop-on-Error:** Immediately halt if a command fails.
-* [ ] **Statistics:** Detailed analytics (Avg/Min/Max duration, P95).
-* [ ] **Advanced Config:** Custom timeouts and working directory support.
+Contributions are welcome. Read the [contribution guidelines](CONTRIBUTING.md) first.
 
+## 🔒 Security
+
+Please report vulnerabilities privately, as described in the [security policy](SECURITY.md).
+
+---
 
 ## 📄 License
 
-MIT © msaeedsaeedi. See [LICENSE](https://www.google.com/search?q=LICENSE) for details.
+MIT © msaeedsaeedi. See [LICENSE](LICENSE) for details.

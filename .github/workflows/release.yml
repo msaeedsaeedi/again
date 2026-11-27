@@ -1,0 +1,118 @@
+# GitOps release: the version in cmd/again/main.go is the source of truth.
+# Merging a change to it into master publishes v<version>. Versions that are
+# already released are skipped.
+name: Release
+
+on:
+  push:
+    branches: [master]
+    paths: [cmd/again/main.go]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Read version
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      release: ${{ steps.version.outputs.release }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(sed -n 's/^const version = "\(.*\)"$/\1/p' cmd/again/main.go)"
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::Could not read a semantic version from cmd/again/main.go"
+            exit 1
+          fi
+          tag="v$version"
+          # Listing fails loudly on API errors, unlike treating any failure as "not released".
+          tags="$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases" --jq '.[].tag_name')"
+          if printf '%s\n' "$tags" | grep -Fxq "$tag"; then
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "$tag is already released."
+          else
+            refs="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$tag" --jq '.[].ref')"
+            if printf '%s\n' "$refs" | grep -Fxq "refs/tags/$tag"; then
+              echo "::error::Tag $tag exists without a release. Resolve this manually."
+              exit 1
+            fi
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Test and build
+    needs: prepare
+    if: needs.prepare.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: go mod verify
+      - run: go test -race -count=1 ./...
+      - name: Build binaries
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          mkdir dist
+          # Windows is added together with Windows support (#15).
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+            os="${target%/*}"
+            arch="${target#*/}"
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
+              go build -trimpath -ldflags='-s -w' -o "dist/again-$TAG-$os-$arch" ./cmd/again
+          done
+          (cd dist && sha256sum again-* > SHA256SUMS)
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: Publish
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The only job with write access. It does not check out or run repository code.
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/again-*
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          flags=()
+          case "$TAG" in *-*) flags+=(--prerelease) ;; esac
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --title "$TAG" --generate-notes "${flags[@]}"
