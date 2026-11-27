@@ -73,7 +73,7 @@ func newRootCmd(opts *options) *cobra.Command {
 	}
 
 	cmd.Flags().IntVarP(&opts.times, "times", "n", 1, "Number of times to run a command")
-	cmd.Flags().StringVarP(&opts.format, "format", "f", "tui", "Output format (tui|json|raw)")
+	cmd.Flags().StringVarP(&opts.format, "format", "f", "tui", "Output format (tui|json|jsonl|raw)")
 	cmd.Flags().StringVarP(&opts.verbosity, "verbosity", "v", "normal", "Verbosity level (silent|normal|verbose)")
 	cmd.Version = version
 

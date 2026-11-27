@@ -20,6 +20,23 @@ type ResultJSON struct {
 	Error    string  `json:"error,omitempty"`
 }
 
+// newResultJSON converts a run result into its JSON representation.
+// It is shared by the json and jsonl formatters so both emit the same fields.
+func newResultJSON(res domain.RunResult) ResultJSON {
+	resultJSON := ResultJSON{
+		ID:       res.ID,
+		ExitCode: res.ExitCode,
+		Success:  res.Success,
+		Duration: float64(res.Duration.Milliseconds()),
+		Stdout:   string(res.Stdout),
+		Stderr:   string(res.Stderr),
+	}
+	if res.Error != nil {
+		resultJSON.Error = res.Error.Error()
+	}
+	return resultJSON
+}
+
 type JSONFormatter struct {
 	config  *domain.RunConfig
 	results []domain.RunResult
@@ -54,18 +71,7 @@ func (f *JSONFormatter) OnFinish() {
 	results := make([]ResultJSON, 0, len(f.results))
 
 	for _, res := range f.results {
-		resultJSON := ResultJSON{
-			ID:       res.ID,
-			ExitCode: res.ExitCode,
-			Success:  res.Success,
-			Duration: float64(res.Duration.Milliseconds()),
-			Stdout:   string(res.Stdout),
-			Stderr:   string(res.Stderr),
-		}
-		if res.Error != nil {
-			resultJSON.Error = res.Error.Error()
-		}
-		results = append(results, resultJSON)
+		results = append(results, newResultJSON(res))
 	}
 
 	encoder := json.NewEncoder(os.Stdout)
