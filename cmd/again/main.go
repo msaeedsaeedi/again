@@ -21,11 +21,6 @@ type options struct {
 }
 
 func parseCommand(args []string) []string {
-	for i, arg := range args {
-		if arg == "--" {
-			return args[i+1:]
-		}
-	}
 	return args
 }
 
