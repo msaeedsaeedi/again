@@ -1,0 +1,23 @@
+name: PR title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  title:
+    name: PR title format
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check title
+        env:
+          # Passed through the environment so the title is never run as shell code.
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if ! printf '%s' "$TITLE" | grep -Eq '^(feat|fix|docs|test|refactor|ci|chore)(\([a-z0-9._/-]+\))?!?: .+'; then
+            echo "::error::Use 'type: short description' (feat, fix, docs, test, refactor, ci, chore)."
+            exit 1
+          fi
