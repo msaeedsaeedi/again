@@ -4,7 +4,7 @@ package infra
 
 import (
 	"os/exec"
-	"syscall"
+	"strings"
 	"unsafe"
 
 	"github.com/msaeedsaeedi/again/internal/domain"
@@ -89,15 +89,20 @@ func setupProcessGroup(cmd *exec.Cmd) *processGuard {
 func createCmd(cfg *domain.RunConfig) *exec.Cmd {
 	var cmd *exec.Cmd
 	if len(cfg.Command) == 1 {
-		cmd = exec.Command("cmd", "/C", cfg.Command[0])
+		cmdStr := strings.ReplaceAll(cfg.Command[0], "/", "\\")
+		cmd = exec.Command("cmd", "/C", cmdStr)
 
-		if needsCmdQuoting(cfg.Command[0]) {
+		if needsCmdQuoting(cmdStr) {
 			cmd.SysProcAttr = &windows.SysProcAttr{
-				CmdLine: `cmd /C "` + escapeCmdArg(cfg.Command[0]) + `"`,
+				CmdLine: `cmd /C "` + escapeCmdArg(cmdStr) + `"`,
 			}
 		}
 	} else {
-		cmd = exec.Command(cfg.Command[0], cfg.Command[1:]...)
+		args := make([]string, len(cfg.Command[1:]))
+		for i, arg := range cfg.Command[1:] {
+			args[i] = strings.ReplaceAll(arg, "/", "\\")
+		}
+		cmd = exec.Command(cfg.Command[0], args...)
 	}
 
 	return cmd
@@ -125,5 +130,3 @@ func escapeCmdArg(s string) string {
 	}
 	return string(out)
 }
-
-var _ = syscall.Getpid
