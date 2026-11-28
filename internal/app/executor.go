@@ -30,8 +30,6 @@ func NewSequentialExecutor(runner *infra.CommandRunner) *SequentialExecutor {
 }
 
 func (e *SequentialExecutor) Execute(ctx context.Context, cfg *domain.RunConfig, handler ResultHandler) error {
-	results := make([]domain.RunResult, 0, cfg.Times)
-
 	for i := 1; i <= cfg.Times; i++ {
 		select {
 		case <-ctx.Done():
@@ -44,7 +42,6 @@ func (e *SequentialExecutor) Execute(ctx context.Context, cfg *domain.RunConfig,
 
 		stdoutWriter, stderrWriter := handler.GetOutputWriters()
 		result := e.runner.Run(ctx, cfg, i, stdoutWriter, stderrWriter)
-		results = append(results, result)
 
 		handler.OnComplete(result)
 	}
