@@ -119,7 +119,7 @@ func needsCmdQuoting(s string) bool {
 }
 
 func escapeCmdArg(s string) string {
-	// Escapa comillas dobles para que cmd.exe no cierre prematuramente la cadena
+	// Double quotes are escaped so that cmd.exe does not prematurely close the string
 	var out []byte
 	for i := 0; i < len(s); i++ {
 		if s[i] == '"' {
