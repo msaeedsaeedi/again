@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
-	"runtime"
 	"time"
 
 	"github.com/msaeedsaeedi/again/internal/domain"
@@ -31,18 +30,12 @@ func (r *CommandRunner) Run(ctx context.Context, cfg *domain.RunConfig, runID in
 		defer cancel()
 	}
 
-	var cmd *exec.Cmd
-	if len(cfg.Command) == 1 {
-		if runtime.GOOS == "windows" {
-			cmd = exec.Command("cmd", "/C", cfg.Command[0])
-		} else {
-			cmd = exec.Command("sh", "-c", cfg.Command[0])
-		}
-	} else {
-		cmd = exec.Command(cfg.Command[0], cfg.Command[1:]...)
-	}
+	// Create the command to run based on the configuration
+	cmd := createCmd(cfg)
 
-	setupProcessGroup(cmd)
+	// Setup the process group for the command
+	guard := setupProcessGroup(cmd)
+	defer guard.Close()
 
 	// Limit output buffer size to prevent OOM (10 MB per stream)
 	const maxOutputSize = 10 * 1024 * 1024
@@ -76,6 +69,7 @@ func (r *CommandRunner) Run(ctx context.Context, cfg *domain.RunConfig, runID in
 		return result
 	}
 
+	guard.Attach(cmd)
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 
@@ -85,7 +79,7 @@ func (r *CommandRunner) Run(ctx context.Context, cfg *domain.RunConfig, runID in
 		// normal exit
 	case <-ctx.Done():
 		// Kill the process or process group
-		killProcess(cmd)
+		guard.Kill(cmd)
 		err = ctx.Err()
 		<-done
 	}
